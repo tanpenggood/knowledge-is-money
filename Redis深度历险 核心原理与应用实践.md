@@ -96,11 +96,32 @@
 
 	- zset + 滑动窗口
 
-	  zadd(key, nowTs, nowTs)
+	  ```python
+	  # coding: utf8
 	  
-	  zremrangeByScore(key, 0, nowTs - period * 1000)
+	  import time
+	  import redis
 	  
-	  expire(key, period + 1)
+	  client = redis.StrictRedis()
+	  
+	  def is_action_allowed(user_id, acction_key, period, max_count):
+	  	key = 'hist:%s:%s' % (user_id, action_key)
+	  	now_ts = int(time.time() * 1000)
+	  	with client.pipeline() as pipe:
+	  		# value 和 score 都使用毫秒时间戳
+	  		pipe.zadd(key, now_ts, now_ts)
+	  		# 移除时间窗口之前的行为记录，剩下的都是时间窗口内的
+	  		pipe.zremrangebyscore(key, 0, now_ts - 	period * 1000)
+	  		# 获取窗口内的行为数量
+	  		pipe.zcard(key)
+	  		# 设置过期时间，避免冷用户持续占用内存
+	  		pipe.expire(key, period + 1)
+	  		# 批量执行
+	  		_, _, current_count, _ = pipe.execute()
+	  	# 比较数量是否超标
+	  	return max_count >= current_count
+	  
+	  ```
 
 - 小结
 
